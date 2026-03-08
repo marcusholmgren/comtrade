@@ -3,7 +3,9 @@ use float_cmp::approx_eq;
 use comtrade::Comtrade;
 
 pub const SAMPLE_COMTRADE_DIR: &str = "./tests/comtrade_files";
+#[allow(dead_code)]
 pub const MINUTE: i32 = 60;
+#[allow(dead_code)]
 pub const HOUR: i32 = MINUTE * 60;
 
 pub fn assert_comtrades_eq(left: &Comtrade, right: &Comtrade) {
