@@ -121,7 +121,7 @@ impl FromStr for LeapSecondStatus {
 }
 
 lazy_static! {
-    static ref CFF_HEADER_REGEXP: Regex = Regex::new(r#"(?i)---\s*file type:\s*(?P<file_type>[a-z]+)(\s+(?P<data_format>[a-z]+))?\s*(:\s*(?P<data_size>\d+))?\s*---$"#).unwrap();
+    static ref CFF_HEADER_REGEXP: Regex = Regex::new(r#"(?i)---\s*file type:\s*(?P<file_type>[a-z]+)(\s+(?P<data_format>[a-z0-9]+))?\s*(:\s*(?P<data_size>\d+))?\s*---$"#).unwrap();
     static ref DATE_REGEXP: Regex = Regex::new("([0-9]{1,2})/([0-9]{1,2})/([0-9]{2,4})").unwrap();
     static ref TIME_REGEXP: Regex = Regex::new("([0-9]{2}):([0-9]{2}):([0-9]{2})(\\.([0-9]{1,12}))?").unwrap();
 }

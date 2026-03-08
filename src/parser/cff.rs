@@ -21,11 +21,9 @@ impl<T: BufRead> ComtradeParser<T> {
 
         let mut current_file: Option<FileType> = None;
         let mut data_format: Option<DataFormat> = None;
-        let mut _data_size: Option<usize> = None;
+        let mut data_size: Option<usize> = None;
 
         loop {
-            // TODO: Analyse performance of using single `line` across each iteration
-            //       vs. using shared buffer and cloning at end of each iteration.
             let mut line = String::new();
             let bytes_read = file
                 .read_line(&mut line)
@@ -33,9 +31,12 @@ impl<T: BufRead> ComtradeParser<T> {
             if bytes_read == 0 {
                 break;
             }
-            line = line.trim().to_string();
 
-            let maybe_file_header_match = CFF_HEADER_REGEXP.captures(line.as_str());
+            // A trim() without allocations is needed for CFF_HEADER_REGEXP match,
+            // but we must be careful with keeping the original line if it's pushed later.
+            let trimmed_line = line.trim();
+
+            let maybe_file_header_match = CFF_HEADER_REGEXP.captures(trimmed_line);
             if let Some(header_match) = maybe_file_header_match {
                 let file_type_token = header_match.name("file_type").ok_or_else(|| {
                     ParseError::new("unable to find file type in CFF header Regexp".to_string())
@@ -51,7 +52,7 @@ impl<T: BufRead> ComtradeParser<T> {
                 }
 
                 if let Some(data_size_token) = maybe_data_size_token {
-                    _data_size = Some(data_size_token.as_str().parse::<usize>().map_err(|_| {
+                    data_size = Some(data_size_token.as_str().parse::<usize>().map_err(|_| {
                         ParseError::new(format!(
                             "unable to parse .dat size: '{}'",
                             data_size_token.as_str()
@@ -59,18 +60,35 @@ impl<T: BufRead> ComtradeParser<T> {
                     })?)
                 }
 
+                if current_file == Some(FileType::Dat) && data_format != Some(DataFormat::Ascii) {
+                    if let Some(size) = data_size {
+                        let mut buf = vec![0u8; size];
+                        file.read_exact(&mut buf).map_err(|e| {
+                            ParseError::new(format!("I/O error reading binary data: {}", e))
+                        })?;
+                        self.binary_dat_contents = buf;
+                        current_file = None; // Reset to avoid appending remaining newlines
+                    } else {
+                        return Err(ParseError::new(
+                            "binary data in .cff files must specify data size".to_string(),
+                        ));
+                    }
+                }
+
                 continue;
             }
+
+            let line = line.trim().to_string();
 
             match current_file {
                 Some(FileType::Cfg) => cfg_lines.push(line),
                 Some(FileType::Dat) => {
+                    // Ascii format is handled line-by-line
                     if data_format == Some(DataFormat::Ascii) {
                         dat_lines.push(line);
                     } else {
-                        return Err(ParseError::new(
-                            "binary data in .cff files is not yet supported".to_string(),
-                        ));
+                        // Binary is handled above right after parsing the header
+                        unreachable!()
                     }
                 }
                 Some(FileType::Hdr) => hdr_lines.push(line),
