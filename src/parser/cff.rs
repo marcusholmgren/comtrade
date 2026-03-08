@@ -21,15 +21,15 @@ impl<T: BufRead> ComtradeParser<T> {
 
         let mut current_file: Option<FileType> = None;
         let mut data_format: Option<DataFormat> = None;
-        let mut data_size: Option<usize> = None;
+        let mut _data_size: Option<usize> = None;
 
         loop {
             // TODO: Analyse performance of using single `line` across each iteration
             //       vs. using shared buffer and cloning at end of each iteration.
             let mut line = String::new();
-            let bytes_read = file.read_line(&mut line).map_err(|e| {
-                ParseError::new(format!("I/O error reading .cff file: {}", e))
-            })?;
+            let bytes_read = file
+                .read_line(&mut line)
+                .map_err(|e| ParseError::new(format!("I/O error reading .cff file: {}", e)))?;
             if bytes_read == 0 {
                 break;
             }
@@ -51,7 +51,7 @@ impl<T: BufRead> ComtradeParser<T> {
                 }
 
                 if let Some(data_size_token) = maybe_data_size_token {
-                    data_size = Some(data_size_token.as_str().parse::<usize>().map_err(|_| {
+                    _data_size = Some(data_size_token.as_str().parse::<usize>().map_err(|_| {
                         ParseError::new(format!(
                             "unable to parse .dat size: '{}'",
                             data_size_token.as_str()
@@ -68,7 +68,9 @@ impl<T: BufRead> ComtradeParser<T> {
                     if data_format == Some(DataFormat::Ascii) {
                         dat_lines.push(line);
                     } else {
-                        return Err(ParseError::new("binary data in .cff files is not yet supported".to_string()));
+                        return Err(ParseError::new(
+                            "binary data in .cff files is not yet supported".to_string(),
+                        ));
                     }
                 }
                 Some(FileType::Hdr) => hdr_lines.push(line),

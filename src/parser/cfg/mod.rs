@@ -239,7 +239,7 @@ pub trait ConfigLine<'a>: Iterator<Item = &'a str> {
 /// Broad implementation of this trait so it acts as an alias.
 impl<'a, T: Iterator<Item = &'a str>> ConfigLine<'a> for T {}
 
-fn split_cfg_line(line: &str) -> impl ConfigLine {
+fn split_cfg_line(line: &str) -> impl ConfigLine<'_> {
     line.split(CFG_SEPARATOR).map(|s| s.trim())
 }
 
