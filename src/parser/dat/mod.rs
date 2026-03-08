@@ -63,7 +63,14 @@ impl<T: BufRead> ComtradeParser<T> {
             timestamps.push(self.real_time(sample_number, timestamp)?);
 
             for channel_idx in 0..self.num_analog_channels {
-                let value_str = data_values[(channel_idx + 2) as usize].trim();
+                let col_idx = (channel_idx + 2) as usize;
+                let value_str = data_values.get(col_idx).ok_or_else(|| {
+                    ParseError::new(format!(
+                        "Missing column for analog channel {} on line {}",
+                        channel_idx + 1,
+                        i + 1
+                    ))
+                })?.trim();
                 let value_raw = value_str.parse::<f64>().map_err(|_| {
                     ParseError::new(format!(
                         "[DAT] Invalid float value {} in analog channel {} on line {}.",
@@ -83,8 +90,14 @@ impl<T: BufRead> ComtradeParser<T> {
             }
 
             for channel_idx in 0..self.num_status_channels {
-                let value_str =
-                    data_values[(channel_idx + self.num_analog_channels + 2) as usize].trim();
+                let col_idx = (channel_idx + self.num_analog_channels + 2) as usize;
+                let value_str = data_values.get(col_idx).ok_or_else(|| {
+                    ParseError::new(format!(
+                        "Missing column for status channel {} on line {}",
+                        channel_idx + 1,
+                        i + 1
+                    ))
+                })?.trim();
                 let value = value_str.parse::<u8>().map_err(|_| {
                     ParseError::new(format!(
                         "[DAT] Invalid status value {} in status channel {} on line {}",
@@ -119,8 +132,12 @@ impl<T: BufRead> ComtradeParser<T> {
                 break;
             }
 
-            let sample_number = cursor.read_u32::<LittleEndian>().unwrap();
-            let timestamp = cursor.read_u32::<LittleEndian>().unwrap();
+            let sample_number = cursor.read_u32::<LittleEndian>().map_err(|e| {
+                ParseError::new(format!("failed to read sample number in binary data: {}", e))
+            })?;
+            let timestamp = cursor.read_u32::<LittleEndian>().map_err(|e| {
+                ParseError::new(format!("failed to read timestamp in binary data: {}", e))
+            })?;
 
             sample_numbers.push(sample_number);
             timestamps.push(self.real_time(
@@ -132,50 +149,50 @@ impl<T: BufRead> ComtradeParser<T> {
                 },
             )?);
 
-            let analog_values = (0..self.num_analog_channels)
-                .map(|channel_idx| {
-                    let value = match self.data_format {
-                        Some(DataFormat::Binary16) => {
-                            cursor.read_i16::<LittleEndian>().unwrap() as f64
-                        }
-                        Some(DataFormat::Binary32) => {
-                            cursor.read_i32::<LittleEndian>().unwrap() as f64
-                        }
-                        Some(DataFormat::Float32) => {
-                            cursor.read_f32::<LittleEndian>().unwrap() as f64
-                        }
-                        _ => panic!(
-                            "tried to parse binary data for non-binary or invalid data format"
-                        ), // TODO: Turn into proper parse result.
-                    };
+            let mut analog_values = Vec::with_capacity(self.num_analog_channels as usize);
+            for channel_idx in 0..self.num_analog_channels {
+                let value = match self.data_format {
+                    Some(DataFormat::Binary16) => {
+                        cursor.read_i16::<LittleEndian>().map_err(|e| {
+                            ParseError::new(format!("failed to read binary16 analog value: {}", e))
+                        })? as f64
+                    }
+                    Some(DataFormat::Binary32) => {
+                        cursor.read_i32::<LittleEndian>().map_err(|e| {
+                            ParseError::new(format!("failed to read binary32 analog value: {}", e))
+                        })? as f64
+                    }
+                    Some(DataFormat::Float32) => {
+                        cursor.read_f32::<LittleEndian>().map_err(|e| {
+                            ParseError::new(format!("failed to read float32 analog value: {}", e))
+                        })? as f64
+                    }
+                    _ => return Err(ParseError::new("tried to parse binary data for non-binary or invalid data format".to_string())),
+                };
 
-                    let adder = self.analog_channels[channel_idx as usize]
-                        .config
-                        .offset_adder;
-                    let multiplier = self.analog_channels[channel_idx as usize].config.multiplier;
-                    value * multiplier + adder
-                })
-                .collect::<Vec<f64>>();
+                let adder = self.analog_channels[channel_idx as usize]
+                    .config
+                    .offset_adder;
+                let multiplier = self.analog_channels[channel_idx as usize].config.multiplier;
+                analog_values.push(value * multiplier + adder);
+            }
 
             for (i, v) in analog_values.into_iter().enumerate() {
                 self.analog_channels[i].push_datum(v);
             }
 
-            let status_values = (0..num_status_groups)
-                .map(|_| cursor.read_u16::<LittleEndian>().unwrap())
-                .flat_map(|group| {
-                    (0..16)
-                        .map(|bit_idx| {
-                            // Least significant bit is first status channel.
-                            let bit_mask = 0b01 << bit_idx;
-                            let val = (group & bit_mask) >> bit_idx;
-                            val as u8
-                        })
-                        .collect::<Vec<u8>>()
-                })
-                // Groups are padded out with zeros - we want to ignore the padded values.
-                .take(self.num_status_channels as usize)
-                .collect::<Vec<u8>>();
+            let mut status_values = Vec::new();
+            for _ in 0..num_status_groups {
+                let group = cursor.read_u16::<LittleEndian>().map_err(|e| {
+                    ParseError::new(format!("failed to read status group: {}", e))
+                })?;
+                for bit_idx in 0..16 {
+                    let bit_mask = 0b01 << bit_idx;
+                    let val = (group & bit_mask) >> bit_idx;
+                    status_values.push(val as u8);
+                }
+            }
+            let status_values: Vec<u8> = status_values.into_iter().take(self.num_status_channels as usize).collect();
 
             for (i, v) in status_values.into_iter().enumerate() {
                 self.status_channels[i].push_datum(v);

@@ -9,7 +9,7 @@ impl<T: BufRead> ComtradeParser<T> {
     /// does *not* include the skew, which needs to be done on a per-channel basis.
     pub(super) fn real_time(&self, sample_number: u32, timestamp: Option<u32>) -> ParseResult<f64> {
         if !self.is_timestamp_critical || timestamp.is_none() {
-            let sampling_rate = self.sampling_rate_for_sample(sample_number);
+            let sampling_rate = self.sampling_rate_for_sample(sample_number)?;
             return ParseResult::Ok((sample_number - 1) as f64 / sampling_rate);
         }
 
@@ -25,7 +25,7 @@ impl<T: BufRead> ComtradeParser<T> {
         }
     }
 
-    fn sampling_rate_for_sample(&self, sample_number: u32) -> f64 {
+    fn sampling_rate_for_sample(&self, sample_number: u32) -> ParseResult<f64> {
         let sampling_rates: &Vec<SamplingRate> = self.builder.sampling_rates.as_ref().unwrap();
 
         let maybe_rate = sampling_rates
@@ -33,8 +33,18 @@ impl<T: BufRead> ComtradeParser<T> {
             .find(|r| sample_number <= r.end_sample_number);
 
         match maybe_rate {
-            Some(rate) => rate.rate_hz,
-            None => 1.0, // TODO: What should we return here? Default value? None?
+            Some(rate) => Ok(rate.rate_hz),
+            None => {
+                // If the sample number exceeds the maximum defined sampling rate's end_sample_number,
+                // fall back to the last known rate if available.
+                match sampling_rates.last() {
+                    Some(rate) => Ok(rate.rate_hz),
+                    None => Err(ParseError::new(format!(
+                        "could not determine sampling rate for sample number {}",
+                        sample_number
+                    ))),
+                }
+            }
         }
     }
 }

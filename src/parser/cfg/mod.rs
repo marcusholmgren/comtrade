@@ -46,8 +46,6 @@ impl<T: BufRead> ComtradeParser<T> {
         self.num_analog_channels = num_analog_channels;
         self.num_status_channels = num_status_channels;
 
-        line_number += 1;
-
         let mut analog_channels: Vec<AnalogConfig> =
             Vec::with_capacity(self.num_analog_channels as usize);
         let mut status_channels: Vec<StatusConfig> =
@@ -100,17 +98,21 @@ impl<T: BufRead> ComtradeParser<T> {
             sampling_rates.push(sampling_rate);
         }
 
-        self.total_num_samples = sampling_rates
-            .iter()
-            .map(|r| r.end_sample_number)
-            .max()
-            .unwrap() as usize;
-
         // If file has 0 for number of sample rates, there's an extra line which just contains 0
-        // indicating no fixed sample rate and the total number of samples. We don't need this data
-        // so we just ignore it.
+        // indicating no fixed sample rate and the total number of samples.
         if num_sampling_rates == 0 {
-            lines.next().ok_or_else(early_end_err)?;
+            let line = lines.next().ok_or_else(early_end_err)?;
+            let mut line = split_cfg_line(line);
+            // Ignore the first value (0)
+            let _ = line.read_value::<u32>()?;
+            let endsamp: u32 = line.read_value()?;
+            self.total_num_samples = endsamp as usize;
+        } else {
+            self.total_num_samples = sampling_rates
+                .iter()
+                .map(|r| r.end_sample_number)
+                .max()
+                .unwrap_or(0) as usize;
         }
 
         self.is_timestamp_critical = num_sampling_rates == 0;

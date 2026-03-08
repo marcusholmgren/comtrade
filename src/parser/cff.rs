@@ -27,7 +27,9 @@ impl<T: BufRead> ComtradeParser<T> {
             // TODO: Analyse performance of using single `line` across each iteration
             //       vs. using shared buffer and cloning at end of each iteration.
             let mut line = String::new();
-            let bytes_read = file.read_line(&mut line).unwrap();
+            let bytes_read = file.read_line(&mut line).map_err(|e| {
+                ParseError::new(format!("I/O error reading .cff file: {}", e))
+            })?;
             if bytes_read == 0 {
                 break;
             }
@@ -66,7 +68,7 @@ impl<T: BufRead> ComtradeParser<T> {
                     if data_format == Some(DataFormat::Ascii) {
                         dat_lines.push(line);
                     } else {
-                        unimplemented!()
+                        return Err(ParseError::new("binary data in .cff files is not yet supported".to_string()));
                     }
                 }
                 Some(FileType::Hdr) => hdr_lines.push(line),
