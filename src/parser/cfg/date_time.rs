@@ -12,7 +12,7 @@ pub enum TimePrecision {
 }
 
 impl TimePrecision {
-    pub fn to_value(&self) -> f64 {
+    pub fn to_value(self) -> f64 {
         match self {
             TimePrecision::Microseconds => 1E-6,
             TimePrecision::Nanoseconds => 1E-9,

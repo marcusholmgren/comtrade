@@ -165,6 +165,12 @@ pub struct ComtradeParserBuilder<T: BufRead> {
     inf_file: Option<T>,
 }
 
+impl<T: BufRead> Default for ComtradeParserBuilder<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: BufRead> ComtradeParserBuilder<T> {
     pub fn new() -> Self {
         Self {

@@ -17,10 +17,10 @@ impl<T: BufRead> ComtradeParser<T> {
 
     pub(super) fn parse_dat_ascii(&mut self) -> ParseResult<()> {
         // One column for index, one for timestamp.
-        let expected_num_cols = (self.num_status_channels + self.num_analog_channels + 2) as usize;
+        let expected_num_cols = self.num_status_channels + self.num_analog_channels + 2;
 
-        let mut sample_numbers: Vec<u32> = Vec::with_capacity(self.total_num_samples as usize);
-        let mut timestamps: Vec<f64> = Vec::with_capacity(self.total_num_samples as usize);
+        let mut sample_numbers: Vec<u32> = Vec::with_capacity(self.total_num_samples);
+        let mut timestamps: Vec<f64> = Vec::with_capacity(self.total_num_samples);
 
         for (i, line) in self
             .ascii_dat_contents
@@ -63,7 +63,7 @@ impl<T: BufRead> ComtradeParser<T> {
             timestamps.push(self.real_time(sample_number, timestamp)?);
 
             for channel_idx in 0..self.num_analog_channels {
-                let col_idx = (channel_idx + 2) as usize;
+                let col_idx = channel_idx + 2;
                 let value_str = data_values.get(col_idx).ok_or_else(|| {
                     ParseError::new(format!(
                         "Missing column for analog channel {} on line {}",
@@ -80,17 +80,15 @@ impl<T: BufRead> ComtradeParser<T> {
                     ))
                 })?;
 
-                let adder = self.analog_channels[channel_idx as usize]
-                    .config
-                    .offset_adder;
-                let multiplier = self.analog_channels[channel_idx as usize].config.multiplier;
+                let adder = self.analog_channels[channel_idx].config.offset_adder;
+                let multiplier = self.analog_channels[channel_idx].config.multiplier;
                 let value = value_raw * multiplier + adder;
 
-                self.analog_channels[channel_idx as usize].push_datum(value);
+                self.analog_channels[channel_idx].push_datum(value);
             }
 
             for channel_idx in 0..self.num_status_channels {
-                let col_idx = (channel_idx + self.num_analog_channels + 2) as usize;
+                let col_idx = channel_idx + self.num_analog_channels + 2;
                 let value_str = data_values.get(col_idx).ok_or_else(|| {
                     ParseError::new(format!(
                         "Missing column for status channel {} on line {}",
@@ -106,7 +104,7 @@ impl<T: BufRead> ComtradeParser<T> {
                         i + 1
                     ))
                 })?;
-                self.status_channels[channel_idx as usize].push_datum(value);
+                self.status_channels[channel_idx].push_datum(value);
             }
         }
 
@@ -123,8 +121,8 @@ impl<T: BufRead> ComtradeParser<T> {
 
         let mut cursor = Cursor::new(&self.binary_dat_contents);
 
-        let mut sample_numbers: Vec<u32> = Vec::with_capacity(self.total_num_samples as usize);
-        let mut timestamps: Vec<f64> = Vec::with_capacity(self.total_num_samples as usize);
+        let mut sample_numbers: Vec<u32> = Vec::with_capacity(self.total_num_samples);
+        let mut timestamps: Vec<f64> = Vec::with_capacity(self.total_num_samples);
 
         let mut i = 0;
         loop {
@@ -149,7 +147,7 @@ impl<T: BufRead> ComtradeParser<T> {
                 },
             )?);
 
-            let mut analog_values = Vec::with_capacity(self.num_analog_channels as usize);
+            let mut analog_values = Vec::with_capacity(self.num_analog_channels);
             for channel_idx in 0..self.num_analog_channels {
                 let value = match self.data_format {
                     Some(DataFormat::Binary16) => {
@@ -170,10 +168,8 @@ impl<T: BufRead> ComtradeParser<T> {
                     _ => return Err(ParseError::new("tried to parse binary data for non-binary or invalid data format".to_string())),
                 };
 
-                let adder = self.analog_channels[channel_idx as usize]
-                    .config
-                    .offset_adder;
-                let multiplier = self.analog_channels[channel_idx as usize].config.multiplier;
+                let adder = self.analog_channels[channel_idx].config.offset_adder;
+                let multiplier = self.analog_channels[channel_idx].config.multiplier;
                 analog_values.push(value * multiplier + adder);
             }
 
@@ -192,7 +188,7 @@ impl<T: BufRead> ComtradeParser<T> {
                     status_values.push(val as u8);
                 }
             }
-            let status_values: Vec<u8> = status_values.into_iter().take(self.num_status_channels as usize).collect();
+            let status_values: Vec<u8> = status_values.into_iter().take(self.num_status_channels).collect();
 
             for (i, v) in status_values.into_iter().enumerate() {
                 self.status_channels[i].push_datum(v);

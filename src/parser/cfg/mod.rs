@@ -47,9 +47,9 @@ impl<T: BufRead> ComtradeParser<T> {
         self.num_status_channels = num_status_channels;
 
         let mut analog_channels: Vec<AnalogConfig> =
-            Vec::with_capacity(self.num_analog_channels as usize);
+            Vec::with_capacity(self.num_analog_channels);
         let mut status_channels: Vec<StatusConfig> =
-            Vec::with_capacity(self.num_status_channels as usize);
+            Vec::with_capacity(self.num_status_channels);
 
         for _ in 0..num_analog_channels {
             let line = lines.next().ok_or_else(early_end_err)?;
@@ -178,9 +178,9 @@ impl<T: BufRead> ComtradeParser<T> {
         let line = lines.next().ok_or_else(early_end_err)?;
         let mut line_values = split_cfg_line(line);
         let time_offset = parse_time_offset(&line_values.read_value::<String>()?)
-            .map_err(|e| ComtradeError::ParserError(e))?;
+            .map_err(ComtradeError::ParserError)?;
         let local_offset = parse_time_offset(&line_values.read_value::<String>()?)
-            .map_err(|e| ComtradeError::ParserError(e))?;
+            .map_err(ComtradeError::ParserError)?;
 
         // Time information and relationship between local time and UTC
         // time_code, local_code

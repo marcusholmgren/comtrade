@@ -2,17 +2,12 @@ use crate::error::ComtradeError;
 use chrono::NaiveDate;
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum FormatRevision {
+    #[default]
     Revision1991,
     Revision1999,
     Revision2013,
-}
-
-impl Default for FormatRevision {
-    fn default() -> Self {
-        FormatRevision::Revision1991
-    }
 }
 
 impl FromStr for FormatRevision {
