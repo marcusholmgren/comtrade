@@ -119,7 +119,7 @@ impl<T: BufRead> ComtradeParser<T> {
     fn parse_dat_binary(&mut self) -> ParseResult<()> {
         // Status channels are binary (0 or 1) and combined into 16-bit bitfields.
         // Each 16-bit bitfield is referred to as a status "group".
-        let num_status_groups = (self.num_status_channels as f32 / 16.0).ceil() as u8;
+        let num_status_groups = (self.num_status_channels as f64 / 16.0).ceil() as usize;
 
         let mut cursor = Cursor::new(&self.binary_dat_contents);
 

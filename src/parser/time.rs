@@ -8,7 +8,13 @@ impl<T: BufRead> ComtradeParser<T> {
     /// along with relevant multiplicative factors from configuration file. This
     /// does *not* include the skew, which needs to be done on a per-channel basis.
     pub(super) fn real_time(&self, sample_number: u32, timestamp: Option<u32>) -> ParseResult<f64> {
-        if !self.is_timestamp_critical || timestamp.is_none() {
+        if sample_number == 0 {
+            return Err(ParseError::new(
+                "sample number cannot be zero".to_string(),
+            ));
+        }
+
+        if !self.is_timestamp_critical {
             let sampling_rate = self.sampling_rate_for_sample(sample_number)?;
             return ParseResult::Ok((sample_number - 1) as f64 / sampling_rate);
         }
@@ -26,7 +32,9 @@ impl<T: BufRead> ComtradeParser<T> {
     }
 
     fn sampling_rate_for_sample(&self, sample_number: u32) -> ParseResult<f64> {
-        let sampling_rates: &Vec<SamplingRate> = self.builder.sampling_rates.as_ref().unwrap();
+        let sampling_rates: &Vec<SamplingRate> = self.builder.sampling_rates.as_ref().ok_or_else(|| {
+            ParseError::new("sampling rates not available; cfg file may not have been parsed yet".to_string())
+        })?;
 
         let maybe_rate = sampling_rates
             .iter()
@@ -96,10 +104,13 @@ pub fn parse_time_offset(offset_str: &str) -> ParseResult<Option<FixedOffset>> {
         ))
     })?;
 
-    let total_offset = if hours > 0 {
-        hours * 3600 + minutes * 60
-    } else {
+    // Determine the sign of the overall offset from the leading '+'/'-' character,
+    // not from the parsed hours value — this handles offsets like "+0h30" (UTC+0:30)
+    // where hours is 0 and the sign would otherwise be lost.
+    let total_offset = if time_value.starts_with('-') {
         hours * 3600 - minutes * 60
+    } else {
+        hours * 3600 + minutes * 60
     };
 
     Ok(Some(FixedOffset::east(total_offset)))
