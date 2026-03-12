@@ -358,6 +358,6 @@ impl<T: BufRead> ComtradeParser<T> {
         self.builder.analog_channels(self.analog_channels);
         self.builder.status_channels(self.status_channels);
 
-        Ok(self.builder.build().unwrap())
+        self.builder.build().map_err(|e| ParseError::new(e.to_string()))
     }
 }
