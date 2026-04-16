@@ -19,7 +19,7 @@ This library provides a native Rust library for parsing [COMTRADE](https://en.wi
 | Implement parsing ASCII data files | Done |
 | Implement parsing binary16 data files | Done |
 | Implement parsing binary32 data files | Done (not tested) |
-| Implement parsing float32 data files | Done (not tested) |
+| Implement parsing float32 data files | Done |
 | Implement loading separate files from combined 2013 `.cff` format. | Done |
 | Implement retrieval of actual analog data values using primary vs. secondary factors, offsets, etc. | Adders & multipliers done; primary vs. secondary todo |
 | Implement calculation of real time based on time multipliers, etc. (critical & non-critical timestamps) | Done |
@@ -39,7 +39,7 @@ Todo: document usage.
 - Add warnings for non-critical data missing and errors for critical data missing.
 - Add warnings for unexpected values (but not errors) for things like channel numbers not adding up, etc.
 - Test files:
-  - Binary32 and float32 data files.
+  - Binary32 data files.
   - Missing non-critical data.
   - Continuously variable sample rate (i.e. crticial timestamp).
   - Multiple sample rates.

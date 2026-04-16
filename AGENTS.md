@@ -33,12 +33,12 @@ src/parser/
   mod.rs          # Public parser API; dispatches to .cfg and .dat parsers
   time.rs         # Time parsing utilities (timestamps, time multipliers, etc.)
 src/parser/cfg
-  analog_channel.rs  # Analog channel definition parsing
+  analog_channels.rs # Analog channel definition parsing
   date_time.rs    # Date/time parsing utilities
   id_line.rs      # Station/device ID line parser
   mod.rs          # .cfg file parser (ASCII/UTF-8)
-  revision.rs     # Revision year parsing utilities
-  sample_rate.rs  # Sample rate section parsing
+  revisions.rs    # Revision year parsing utilities
+  sample_rates.rs # Sample rate section parsing
   status_channel.rs  # Digital channel definition parsing
 src/parser/dat
   mod.rs          # .dat file parser (ASCII, Binary16, Binary32, Float32)
@@ -85,7 +85,7 @@ All of the above must pass cleanly before a change is considered complete.
 | Parse ASCII `.dat` files | ✅ Done |
 | Parse Binary16 `.dat` files | ✅ Done |
 | Parse Binary32 `.dat` files | ✅ Done (not tested) |
-| Parse Float32 `.dat` files | ✅ Done (not tested) |
+| Parse Float32 `.dat` files | ✅ Done |
 | Load `.cff` combined format | ✅ Done |
 | Analog value retrieval (adders & multipliers) | ✅ Done |
 | Analog value retrieval (primary vs. secondary) | ❌ Todo |
@@ -101,7 +101,7 @@ When implementing new features or fixing bugs, address items in this order:
 ### High priority
 1. **Primary vs. secondary scaling** — Analog channels in COMTRADE have a `ps` flag (`P` or `S`) indicating whether values are in primary or secondary units. The conversion factor needs to be applied based on this flag. See the `.cfg` channel definition rows.
 2. **Error message quality** — Errors should consistently include the filename and line number where the problem occurred.
-3. **Test coverage for Binary32 and Float32** — These parsers exist but have no test files. Obtain or generate sample files and add regression tests.
+3. **Test coverage for Binary32** — This parser exists but has no test file. Obtain or generate a sample file and add regression test.
 
 ### Medium priority
 4. **Channel-specific timestamp skews** — Some COMTRADE files specify per-channel time offsets. This is not yet implemented.

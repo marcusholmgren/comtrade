@@ -6,4 +6,3 @@ pub enum DataFormat {
     Binary32,
     Float32,
 }
-

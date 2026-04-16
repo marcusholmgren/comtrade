@@ -1,5 +1,6 @@
 use super::ConfigLine;
 use crate::error::ComtradeError;
+use crate::FormatRevision;
 use std::num::NonZeroUsize;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,20 +31,61 @@ pub struct AnalogConfig {
 }
 
 impl AnalogConfig {
-    pub fn from_cfg_row<'a>(mut config_line: impl ConfigLine<'a>) -> Result<Self, ComtradeError> {
-        let index = config_line.read_value()?;
-        let name = config_line.read_value()?;
-        let phase = config_line.read_value()?;
-        let circuit_component_being_monitored = config_line.read_value()?;
-        let units = config_line.read_value()?;
-        let multiplier = config_line.read_value()?;
-        let offset_adder = config_line.read_value()?;
-        let skew = config_line.read_value()?;
-        let min_value = config_line.read_value()?;
-        let max_value = config_line.read_value()?;
-        let primary_factor = config_line.read_value()?;
-        let secondary_factor = config_line.read_value()?;
-        let scaling_mode = config_line.read_value()?;
+    pub fn from_cfg_row<'a>(
+        mut config_line: impl ConfigLine<'a>,
+        revision: &FormatRevision,
+    ) -> Result<Self, ComtradeError> {
+        let index = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Index"))?;
+        let name = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Name"))?;
+        let phase = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Phase"))?;
+        let circuit_component_being_monitored = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Component"))?;
+        let units = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Units"))?;
+        let multiplier = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Multiplier"))?;
+        let offset_adder = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Offset Adder"))?;
+        let skew = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Skew"))?;
+        let min_value = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Min Value"))?;
+        let max_value = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Analog Channel: Max Value"))?;
+
+        let primary_factor;
+        let secondary_factor;
+        let scaling_mode;
+
+        if *revision == FormatRevision::Revision1991 {
+            primary_factor = 1.0;
+            secondary_factor = 1.0;
+            scaling_mode = AnalogScalingMode::Primary;
+        } else {
+            primary_factor = config_line
+                .read_value()
+                .map_err(|e| e.add_context("Analog Channel: Primary Factor"))?;
+            secondary_factor = config_line
+                .read_value()
+                .map_err(|e| e.add_context("Analog Channel: Secondary Factor"))?;
+            scaling_mode = config_line
+                .read_value()
+                .map_err(|e| e.add_context("Analog Channel: Scaling Mode"))?;
+        }
+
         Ok(Self {
             index,
             name,

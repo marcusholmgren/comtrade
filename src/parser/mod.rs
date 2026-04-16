@@ -81,8 +81,16 @@ impl FromStr for TimeQuality {
     type Err = ParseError;
 
     fn from_str(value: &str) -> ParseResult<Self> {
-        match value.to_lowercase().trim() {
+        let value_lc = value.to_lowercase();
+        let value = value_lc.trim();
+        if value.is_empty() || value == "x" {
+            return Ok(TimeQuality::Unknown);
+        }
+        match value {
             "f" => Ok(TimeQuality::ClockFailure),
+            "e" => Ok(TimeQuality::ClockUnlocked(4)),
+            "d" => Ok(TimeQuality::ClockUnlocked(3)),
+            "c" => Ok(TimeQuality::ClockUnlocked(2)),
             "b" => Ok(TimeQuality::ClockUnlocked(1)),
             "a" => Ok(TimeQuality::ClockUnlocked(0)),
             "9" => Ok(TimeQuality::ClockUnlocked(-1)),
@@ -107,10 +115,14 @@ impl FromStr for LeapSecondStatus {
     type Err = ParseError;
 
     fn from_str(value: &str) -> ParseResult<Self> {
-        match value.trim() {
+        let value = value.trim();
+        if value.is_empty() || value == "2" {
+            return Ok(LeapSecondStatus::Unknown);
+        }
+        match value {
+            "10" => Ok(LeapSecondStatus::HasOccurred),
             "3" => Ok(LeapSecondStatus::NoCapability),
-            "2" => Ok(LeapSecondStatus::Subtracted),
-            "1" => Ok(LeapSecondStatus::Added),
+            "1" => Ok(LeapSecondStatus::ToOccur),
             "0" => Ok(LeapSecondStatus::NotPresent),
             _ => Err(ParseError::new(format!(
                 "invalid leap second indicator '{}'",
@@ -124,6 +136,82 @@ lazy_static! {
     static ref CFF_HEADER_REGEXP: Regex = Regex::new(r#"(?i)---\s*file type:\s*(?P<file_type>[a-z]+)(\s+(?P<data_format>[a-z0-9]+))?\s*(:\s*(?P<data_size>\d+))?\s*---$"#).unwrap();
     static ref DATE_REGEXP: Regex = Regex::new("([0-9]{1,2})/([0-9]{1,2})/([0-9]{2,4})").unwrap();
     static ref TIME_REGEXP: Regex = Regex::new("([0-9]{2}):([0-9]{2}):([0-9]{2})(\\.([0-9]{1,12}))?").unwrap();
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{LeapSecondStatus, TimeQuality};
+
+    #[test]
+    fn test_time_quality_parsing() {
+        assert_eq!(
+            "0".parse::<TimeQuality>().unwrap(),
+            TimeQuality::ClockLocked
+        );
+        assert_eq!(
+            "1".parse::<TimeQuality>().unwrap(),
+            TimeQuality::ClockUnlocked(-9)
+        );
+        assert_eq!(
+            "9".parse::<TimeQuality>().unwrap(),
+            TimeQuality::ClockUnlocked(-1)
+        );
+        assert_eq!(
+            "a".parse::<TimeQuality>().unwrap(),
+            TimeQuality::ClockUnlocked(0)
+        );
+        assert_eq!(
+            "b".parse::<TimeQuality>().unwrap(),
+            TimeQuality::ClockUnlocked(1)
+        );
+        assert_eq!(
+            "c".parse::<TimeQuality>().unwrap(),
+            TimeQuality::ClockUnlocked(2)
+        );
+        assert_eq!(
+            "d".parse::<TimeQuality>().unwrap(),
+            TimeQuality::ClockUnlocked(3)
+        );
+        assert_eq!(
+            "e".parse::<TimeQuality>().unwrap(),
+            TimeQuality::ClockUnlocked(4)
+        );
+        assert_eq!(
+            "f".parse::<TimeQuality>().unwrap(),
+            TimeQuality::ClockFailure
+        );
+        assert_eq!("x".parse::<TimeQuality>().unwrap(), TimeQuality::Unknown);
+        assert_eq!("".parse::<TimeQuality>().unwrap(), TimeQuality::Unknown);
+        assert_eq!("  ".parse::<TimeQuality>().unwrap(), TimeQuality::Unknown);
+    }
+
+    #[test]
+    fn test_leap_second_status_parsing() {
+        assert_eq!(
+            "0".parse::<LeapSecondStatus>().unwrap(),
+            LeapSecondStatus::NotPresent
+        );
+        assert_eq!(
+            "1".parse::<LeapSecondStatus>().unwrap(),
+            LeapSecondStatus::ToOccur
+        );
+        assert_eq!(
+            "2".parse::<LeapSecondStatus>().unwrap(),
+            LeapSecondStatus::Unknown
+        );
+        assert_eq!(
+            "10".parse::<LeapSecondStatus>().unwrap(),
+            LeapSecondStatus::HasOccurred
+        );
+        assert_eq!(
+            "3".parse::<LeapSecondStatus>().unwrap(),
+            LeapSecondStatus::NoCapability
+        );
+        assert_eq!(
+            "".parse::<LeapSecondStatus>().unwrap(),
+            LeapSecondStatus::Unknown
+        );
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -364,6 +452,8 @@ impl<T: BufRead> ComtradeParser<T> {
         self.builder.analog_channels(self.analog_channels);
         self.builder.status_channels(self.status_channels);
 
-        self.builder.build().map_err(|e| ParseError::new(e.to_string()))
+        self.builder
+            .build()
+            .map_err(|e| ParseError::new(e.to_string()))
     }
 }

@@ -9,9 +9,7 @@ impl<T: BufRead> ComtradeParser<T> {
     /// does *not* include the skew, which needs to be done on a per-channel basis.
     pub(super) fn real_time(&self, sample_number: u32, timestamp: Option<u32>) -> ParseResult<f64> {
         if sample_number == 0 {
-            return Err(ParseError::new(
-                "sample number cannot be zero".to_string(),
-            ));
+            return Err(ParseError::new("sample number cannot be zero".to_string()));
         }
 
         if !self.is_timestamp_critical {
@@ -32,9 +30,13 @@ impl<T: BufRead> ComtradeParser<T> {
     }
 
     fn sampling_rate_for_sample(&self, sample_number: u32) -> ParseResult<f64> {
-        let sampling_rates: &Vec<SamplingRate> = self.builder.sampling_rates.as_ref().ok_or_else(|| {
-            ParseError::new("sampling rates not available; cfg file may not have been parsed yet".to_string())
-        })?;
+        let sampling_rates: &Vec<SamplingRate> =
+            self.builder.sampling_rates.as_ref().ok_or_else(|| {
+                ParseError::new(
+                    "sampling rates not available; cfg file may not have been parsed yet"
+                        .to_string(),
+                )
+            })?;
 
         let maybe_rate = sampling_rates
             .iter()
