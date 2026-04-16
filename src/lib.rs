@@ -43,21 +43,27 @@ pub enum TimeQuality {
 
     /// There is a fault in the clock and the time it gives is not reliable.
     ClockFailure,
+
+    /// The time quality is unknown or not applicable.
+    Unknown,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum LeapSecondStatus {
-    /// Time source does not have capability to address presence of leap seconds.
-    NoCapability,
-
-    /// A leap second has been subtracted from the record.
-    Subtracted,
-
-    /// A leap second has been added to the record.
-    Added,
-
     /// No leap second is present in the record.
     NotPresent,
+
+    /// A leap second is to occur at the end of the current month.
+    ToOccur,
+
+    /// The leap second status is unknown.
+    Unknown,
+
+    /// A leap second has occurred at the end of the current month.
+    HasOccurred,
+
+    /// Time source does not have capability to address presence of leap seconds.
+    NoCapability,
 }
 
 #[derive(Debug, Clone, Builder, PartialEq)]

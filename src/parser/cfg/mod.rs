@@ -36,6 +36,11 @@ impl<T: BufRead> ComtradeParser<T> {
         self.builder
             .recording_device_id(id_line.recording_device_id);
         self.builder.revision(id_line.format_revision);
+        self.builder.timestamp_multiplication_factor(1.0);
+        self.builder.time_offset(None);
+        self.builder.local_offset(None);
+        self.builder.time_quality(None);
+        self.builder.leap_second_status(None);
         let format_revision = id_line.format_revision;
 
         let line = lines.next().ok_or_else(early_end_err)?;
@@ -46,21 +51,22 @@ impl<T: BufRead> ComtradeParser<T> {
         self.num_analog_channels = num_analog_channels;
         self.num_status_channels = num_status_channels;
 
-        let mut analog_channels: Vec<AnalogConfig> =
-            Vec::with_capacity(self.num_analog_channels);
-        let mut status_channels: Vec<StatusConfig> =
-            Vec::with_capacity(self.num_status_channels);
+        let mut analog_channels: Vec<AnalogConfig> = Vec::with_capacity(self.num_analog_channels);
+        let mut status_channels: Vec<StatusConfig> = Vec::with_capacity(self.num_status_channels);
 
         for _ in 0..num_analog_channels {
             let line = lines.next().ok_or_else(early_end_err)?;
             let config_line = split_cfg_line(line);
-            analog_channels.push(AnalogConfig::from_cfg_row(config_line)?);
+            analog_channels.push(AnalogConfig::from_cfg_row(config_line, &format_revision)?);
         }
 
         for _ in 0..num_status_channels {
             let line = lines.next().ok_or_else(early_end_err)?;
             let config_line = split_cfg_line(line);
-            status_channels.push(StatusConfig::from_config_row(config_line)?);
+            status_channels.push(StatusConfig::from_config_row(
+                config_line,
+                &format_revision,
+            )?);
         }
         self.analog_channels = analog_channels
             .into_iter()
@@ -163,12 +169,6 @@ impl<T: BufRead> ComtradeParser<T> {
 
         let time_mult = line_values.read_value()?;
         self.builder.timestamp_multiplication_factor(time_mult);
-
-        // Default values for optional revision-based fields.
-        self.builder.time_offset(None);
-        self.builder.local_offset(None);
-        self.builder.time_quality(None);
-        self.builder.leap_second_status(None);
 
         // 1999 format ends here - rest of values are 2013 only.
         if format_revision == FormatRevision::Revision1999 {

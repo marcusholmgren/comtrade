@@ -7,7 +7,7 @@ use chrono::{FixedOffset, NaiveDate};
 
 use comtrade::{
     AnalogChannel, AnalogConfig, AnalogScalingMode, Comtrade, ComtradeParserBuilder, DataFormat,
-    FormatRevision, SamplingRate, StatusChannel, StatusConfig, TimeQuality, LeapSecondStatus,
+    FormatRevision, LeapSecondStatus, SamplingRate, StatusChannel, StatusConfig, TimeQuality,
 };
 
 mod common;
@@ -53,39 +53,35 @@ fn it_correctly_parses_sample_float32_files() {
         sample_numbers: (1..=301).collect(),
         timestamps: expected_timestamps,
 
-        analog_channels: vec![
-            AnalogChannel {
-                config: AnalogConfig {
-                    index: NonZeroUsize::new(1).unwrap(),
-                    name: "test/out1".to_string(),
-                    phase: "".to_string(),
-                    circuit_component_being_monitored: "".to_string(),
-                    units: "none".to_string(),
-                    min_value: -3.40282347e38,
-                    max_value: 3.40282347e38,
-                    multiplier: 1.0,
-                    offset_adder: 0.0,
-                    skew: 1.0,
-                    primary_factor: 1.0,
-                    secondary_factor: 1.0,
-                    scaling_mode: AnalogScalingMode::Primary,
-                },
-                data: record.analog_channels[0].data.clone(),
+        analog_channels: vec![AnalogChannel {
+            config: AnalogConfig {
+                index: NonZeroUsize::new(1).unwrap(),
+                name: "test/out1".to_string(),
+                phase: "".to_string(),
+                circuit_component_being_monitored: "".to_string(),
+                units: "none".to_string(),
+                min_value: -3.40282347e38,
+                max_value: 3.40282347e38,
+                multiplier: 1.0,
+                offset_adder: 0.0,
+                skew: 1.0,
+                primary_factor: 1.0,
+                secondary_factor: 1.0,
+                scaling_mode: AnalogScalingMode::Primary,
             },
-        ],
+            data: record.analog_channels[0].data.clone(),
+        }],
 
-        status_channels: vec![
-            StatusChannel {
-                config: StatusConfig {
-                    index: NonZeroUsize::new(1).unwrap(),
-                    name: "test/bool1".into(),
-                    phase: "".into(),
-                    circuit_component_being_monitored: "".into(),
-                    normal_status_value: 0,
-                },
-                data: record.status_channels[0].data.clone(),
+        status_channels: vec![StatusChannel {
+            config: StatusConfig {
+                index: NonZeroUsize::new(1).unwrap(),
+                name: "test/bool1".into(),
+                phase: "".into(),
+                circuit_component_being_monitored: "".into(),
+                normal_status_value: 0,
             },
-        ],
+            data: record.status_channels[0].data.clone(),
+        }],
     };
 
     assert_comtrades_eq(&expected, &record);

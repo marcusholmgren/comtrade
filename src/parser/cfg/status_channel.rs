@@ -1,5 +1,6 @@
 use crate::error::ComtradeError;
 use crate::parser::cfg::ConfigLine;
+use crate::FormatRevision;
 use std::num::NonZeroUsize;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -14,12 +15,36 @@ pub struct StatusConfig {
 impl StatusConfig {
     pub fn from_config_row<'a>(
         mut config_line: impl ConfigLine<'a>,
+        revision: &FormatRevision,
     ) -> Result<Self, ComtradeError> {
-        let status_index = config_line.read_value()?;
-        let name = config_line.read_value()?;
-        let phase = config_line.read_value()?;
-        let circuit_component_being_monitored = config_line.read_value()?;
-        let normal_status_value = config_line.read_value()?;
+        let status_index = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Status Channel: Index"))?;
+        let name = config_line
+            .read_value()
+            .map_err(|e| e.add_context("Status Channel: Name"))?;
+
+        let phase;
+        let circuit_component_being_monitored;
+        let normal_status_value;
+
+        if *revision == FormatRevision::Revision1991 {
+            phase = String::new();
+            circuit_component_being_monitored = String::new();
+            normal_status_value = config_line
+                .read_value()
+                .map_err(|e| e.add_context("Status Channel: Normal Value"))?;
+        } else {
+            phase = config_line
+                .read_value()
+                .map_err(|e| e.add_context("Status Channel: Phase"))?;
+            circuit_component_being_monitored = config_line
+                .read_value()
+                .map_err(|e| e.add_context("Status Channel: Component"))?;
+            normal_status_value = config_line
+                .read_value()
+                .map_err(|e| e.add_context("Status Channel: Normal Value"))?;
+        }
 
         if normal_status_value != 0 && normal_status_value != 1 {
             return Err(ComtradeError::InvalidNormalStatus(status_index));
@@ -42,7 +67,8 @@ mod tests {
     #[test]
     fn errors_on_invalid_standard_status_value() {
         let line = "3, name, phase, component, 2";
-        let result = StatusConfig::from_config_row(split_cfg_line(line));
+        let result =
+            StatusConfig::from_config_row(split_cfg_line(line), &FormatRevision::Revision2013);
         assert!(result.is_err());
     }
 }
