@@ -81,7 +81,11 @@ pub fn parse_time_offset(offset_str: &str) -> ParseResult<Option<FixedOffset>> {
 
     if let Ok(hours) = maybe_hours {
         // Offset specified just as number of hours, e.g. "-4", "+10", "0".
-        return Ok(Some(FixedOffset::east(hours * 3600)));
+        let total_offset = hours * 3600;
+        let offset = FixedOffset::east_opt(total_offset).ok_or_else(|| {
+            ParseError::new(format!("time offset out of bounds: {}", time_value))
+        })?;
+        return Ok(Some(offset));
     }
 
     // Offset specified as number + minutes, e.g. "-7h15", "+9h45".
@@ -115,5 +119,9 @@ pub fn parse_time_offset(offset_str: &str) -> ParseResult<Option<FixedOffset>> {
         hours * 3600 + minutes * 60
     };
 
-    Ok(Some(FixedOffset::east(total_offset)))
+    let offset = FixedOffset::east_opt(total_offset).ok_or_else(|| {
+        ParseError::new(format!("time offset out of bounds: {}", time_value))
+    })?;
+
+    Ok(Some(offset))
 }

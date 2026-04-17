@@ -88,7 +88,7 @@ impl<T: BufRead> ComtradeParser<T> {
                         dat_lines.push(line);
                     } else {
                         // Binary is handled above right after parsing the header
-                        unreachable!()
+                        return Err(ParseError::new("binary dat section encountered outside of header logic".to_string()))
                     }
                 }
                 Some(FileType::Hdr) => hdr_lines.push(line),
