@@ -45,11 +45,14 @@ impl<T: BufRead> ComtradeParser<T> {
 
         let line = lines.next().ok_or_else(early_end_err)?;
         let ChannelSizes {
+            total: declared_total_channels,
             analog: num_analog_channels,
             status: num_status_channels,
         } = ChannelSizes::from_line(split_cfg_line(line))?;
         self.num_analog_channels = num_analog_channels;
         self.num_status_channels = num_status_channels;
+        self.builder
+            .declared_total_channels(declared_total_channels);
 
         let mut analog_channels: Vec<AnalogConfig> = Vec::with_capacity(self.num_analog_channels);
         let mut status_channels: Vec<StatusConfig> = Vec::with_capacity(self.num_status_channels);
@@ -244,14 +247,14 @@ fn split_cfg_line(line: &str) -> impl ConfigLine<'_> {
 }
 
 struct ChannelSizes {
+    total: usize,
     analog: usize,
     status: usize,
 }
 
 impl ChannelSizes {
     fn from_line<'a>(mut cfg_line: impl ConfigLine<'a>) -> Result<Self, ComtradeError> {
-        // Total is not actually needed.
-        let _total: usize = cfg_line
+        let total: usize = cfg_line
             .read_value()
             .map_err(|e| e.add_context("Channel Sizes: Total"))?;
         let analog = cfg_line
@@ -260,7 +263,11 @@ impl ChannelSizes {
         let status = cfg_line
             .read_value_with_trailing_char()
             .map_err(|e| e.add_context("Channel Sizes: Status"))?;
-        Ok(Self { analog, status })
+        Ok(Self {
+            total,
+            analog,
+            status,
+        })
     }
 }
 

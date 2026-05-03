@@ -33,6 +33,7 @@ fn it_correctly_parses_sample_1999_files_with_binary16_data() {
     let expected_sample_rate = 15360.0;
 
     let expected = Comtrade {
+        declared_total_channels: 20,
         station_name: "station".to_string(),
         recording_device_id: "equipment".to_string(),
         revision: FormatRevision::Revision1999,

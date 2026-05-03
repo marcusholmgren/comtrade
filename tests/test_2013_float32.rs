@@ -33,6 +33,7 @@ fn it_correctly_parses_sample_float32_files() {
     let expected_timestamps = record.timestamps.clone();
 
     let expected = Comtrade {
+        declared_total_channels: 2,
         station_name: "EXAMPLE".to_string(),
         recording_device_id: "example".to_string(),
         revision: FormatRevision::Revision2013,

@@ -72,6 +72,8 @@ pub struct Comtrade {
     pub recording_device_id: String,
     pub revision: FormatRevision,
 
+    pub declared_total_channels: usize,
+
     pub sample_numbers: Vec<u32>,
     pub timestamps: Vec<f64>,
     pub analog_channels: Vec<AnalogChannel>,
@@ -99,12 +101,20 @@ pub struct Comtrade {
     pub leap_second_status: Option<LeapSecondStatus>,
 }
 
+impl Comtrade {
+    /// Returns the states for the given digital/status channel index natively.
+    pub fn digital(&self, index: usize) -> Option<&[u8]> {
+        self.status_channels.get(index).map(|sc| sc.data.as_slice())
+    }
+}
+
 impl Default for Comtrade {
     fn default() -> Self {
         Comtrade {
             station_name: Default::default(),
             recording_device_id: Default::default(),
             revision: Default::default(),
+            declared_total_channels: 0,
             sample_numbers: Default::default(),
             timestamps: Default::default(),
             analog_channels: Default::default(),
