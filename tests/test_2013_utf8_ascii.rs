@@ -33,6 +33,7 @@ fn it_correctly_parses_sample_2013_files_with_ascii_data_using_utf8() {
     let expected_sample_rate = 1200.0;
 
     let expected = Comtrade {
+        declared_total_channels: 8,
         station_name: "SMARTSTATION testing text encoding: hgvcj터파크387".to_string(),
         recording_device_id: "IED123".to_string(),
         revision: FormatRevision::Revision2013,
