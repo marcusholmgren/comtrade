@@ -9,7 +9,9 @@ use std::str::FromStr;
 use lazy_static::lazy_static;
 use regex::Regex;
 
-use crate::{Comtrade, ComtradeBuilder, FileType, LeapSecondStatus, TimeQuality};
+use crate::{
+    error::ComtradeError, Comtrade, ComtradeBuilder, FileType, LeapSecondStatus, TimeQuality,
+};
 pub use cfg::{AnalogConfig, AnalogScalingMode, FormatRevision, SamplingRate, StatusConfig};
 pub use dat::DataFormat;
 
@@ -19,16 +21,12 @@ const CFG_SEPARATOR: &str = ",";
 // and float32 data formats when a timestamp is missing.
 const TIMESTAMP_MISSING: u32 = 0xffffffff;
 
-pub type ParseResult<T> = std::result::Result<T, ParseError>;
+pub type ParseError = ComtradeError;
+pub type ParseResult<T> = std::result::Result<T, ComtradeError>;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ParseError {
-    message: String,
-}
-
-impl ParseError {
+impl ComtradeError {
     pub fn new(message: String) -> Self {
-        ParseError { message }
+        ComtradeError::ParserError(message)
     }
 }
 
@@ -225,7 +223,48 @@ impl AnalogChannel {
         self.data.push(value);
     }
 
-    // TODO: Method for retrieving datum at index / sample number including value and time calculations.
+    /// Returns the raw processed value as stored in the channel data (applying multiplier and adder).
+    pub fn value(&self, index: usize) -> Option<f64> {
+        self.data.get(index).copied()
+    }
+
+    /// Returns the value converted to Primary scaling.
+    pub fn primary_value(&self, index: usize) -> Option<f64> {
+        let val = self.value(index)?;
+        match self.config.scaling_mode {
+            AnalogScalingMode::Primary => Some(val),
+            AnalogScalingMode::Secondary => {
+                if self.config.secondary_factor == 0.0 {
+                    Some(val)
+                } else {
+                    Some(val * (self.config.primary_factor / self.config.secondary_factor))
+                }
+            }
+        }
+    }
+
+    /// Returns the value converted to Secondary scaling.
+    pub fn secondary_value(&self, index: usize) -> Option<f64> {
+        let val = self.value(index)?;
+        match self.config.scaling_mode {
+            AnalogScalingMode::Secondary => Some(val),
+            AnalogScalingMode::Primary => {
+                if self.config.primary_factor == 0.0 {
+                    Some(val)
+                } else {
+                    Some(val * (self.config.secondary_factor / self.config.primary_factor))
+                }
+            }
+        }
+    }
+
+    /// Calculates the channel-specific timestamp at the given index,
+    /// by applying the skew (in microseconds) to the base timestamp.
+    pub fn timestamp_at(&self, index: usize, base_timestamps: &[f64]) -> Option<f64> {
+        let base_ts = base_timestamps.get(index).copied()?;
+        let skew_seconds = self.config.skew * 1e-6;
+        Some(base_ts + skew_seconds)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -239,27 +278,27 @@ impl StatusChannel {
         self.data.push(value);
     }
 
-    // TODO: Method for retrieving datum at index / sample number including time calculations.
+    /// Returns the state (0 or 1) at the given index.
+    pub fn value(&self, index: usize) -> Option<u8> {
+        self.data.get(index).copied()
+    }
 }
 
-// Cannot derive builder for this because of complexity of wrapping `T: BufRead` in
-// `Option` - I can't figure out how to stop the default implementation from complaining
-// that `BufReader<File>` doesn't implement `Copy`.
-pub struct ComtradeParserBuilder<T: BufRead> {
-    cff_file: Option<T>,
-    cfg_file: Option<T>,
-    dat_file: Option<T>,
-    hdr_file: Option<T>,
-    inf_file: Option<T>,
+pub struct ComtradeParserBuilder {
+    cff_file: Option<Box<dyn BufRead>>,
+    cfg_file: Option<Box<dyn BufRead>>,
+    dat_file: Option<Box<dyn BufRead>>,
+    hdr_file: Option<Box<dyn BufRead>>,
+    inf_file: Option<Box<dyn BufRead>>,
 }
 
-impl<T: BufRead> Default for ComtradeParserBuilder<T> {
+impl Default for ComtradeParserBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: BufRead> ComtradeParserBuilder<T> {
+impl ComtradeParserBuilder {
     pub fn new() -> Self {
         Self {
             cff_file: None,
@@ -270,32 +309,32 @@ impl<T: BufRead> ComtradeParserBuilder<T> {
         }
     }
 
-    pub fn cff_file(mut self, file: T) -> Self {
-        self.cff_file = Some(file);
+    pub fn cff_file<R: BufRead + 'static>(mut self, file: R) -> Self {
+        self.cff_file = Some(Box::new(file));
         self
     }
 
-    pub fn cfg_file(mut self, file: T) -> Self {
-        self.cfg_file = Some(file);
+    pub fn cfg_file<R: BufRead + 'static>(mut self, file: R) -> Self {
+        self.cfg_file = Some(Box::new(file));
         self
     }
 
-    pub fn dat_file(mut self, file: T) -> Self {
-        self.dat_file = Some(file);
+    pub fn dat_file<R: BufRead + 'static>(mut self, file: R) -> Self {
+        self.dat_file = Some(Box::new(file));
         self
     }
 
-    pub fn hdr_file(mut self, file: T) -> Self {
-        self.hdr_file = Some(file);
+    pub fn hdr_file<R: BufRead + 'static>(mut self, file: R) -> Self {
+        self.hdr_file = Some(Box::new(file));
         self
     }
 
-    pub fn inf_file(mut self, file: T) -> Self {
-        self.inf_file = Some(file);
+    pub fn inf_file<R: BufRead + 'static>(mut self, file: R) -> Self {
+        self.inf_file = Some(Box::new(file));
         self
     }
 
-    pub fn build(self) -> ComtradeParser<T> {
+    pub fn build(self) -> ComtradeParser {
         ComtradeParser::new(
             self.cff_file,
             self.cfg_file,
@@ -306,12 +345,12 @@ impl<T: BufRead> ComtradeParserBuilder<T> {
     }
 }
 
-pub struct ComtradeParser<T: BufRead> {
-    cff_file: Option<T>,
-    cfg_file: Option<T>,
-    dat_file: Option<T>,
-    hdr_file: Option<T>,
-    inf_file: Option<T>,
+pub struct ComtradeParser {
+    cff_file: Option<Box<dyn BufRead>>,
+    cfg_file: Option<Box<dyn BufRead>>,
+    dat_file: Option<Box<dyn BufRead>>,
+    hdr_file: Option<Box<dyn BufRead>>,
+    inf_file: Option<Box<dyn BufRead>>,
 
     cfg_contents: String,
     ascii_dat_contents: String,
@@ -330,13 +369,13 @@ pub struct ComtradeParser<T: BufRead> {
     data_format: Option<DataFormat>,
 }
 
-impl<T: BufRead> ComtradeParser<T> {
+impl ComtradeParser {
     pub fn new(
-        cff_file: Option<T>,
-        cfg_file: Option<T>,
-        dat_file: Option<T>,
-        hdr_file: Option<T>,
-        inf_file: Option<T>,
+        cff_file: Option<Box<dyn BufRead>>,
+        cfg_file: Option<Box<dyn BufRead>>,
+        dat_file: Option<Box<dyn BufRead>>,
+        hdr_file: Option<Box<dyn BufRead>>,
+        inf_file: Option<Box<dyn BufRead>>,
     ) -> Self {
         Self {
             cff_file,
@@ -363,18 +402,18 @@ impl<T: BufRead> ComtradeParser<T> {
         }
     }
 
-    pub fn dat_file(mut self, file: T) -> Self {
-        self.dat_file = Some(file);
+    pub fn dat_file<R: BufRead + 'static>(mut self, file: R) -> Self {
+        self.dat_file = Some(Box::new(file));
         self
     }
 
-    pub fn hdr_file(mut self, file: T) -> Self {
-        self.hdr_file = Some(file);
+    pub fn hdr_file<R: BufRead + 'static>(mut self, file: R) -> Self {
+        self.hdr_file = Some(Box::new(file));
         self
     }
 
-    pub fn inf_file(mut self, file: T) -> Self {
-        self.inf_file = Some(file);
+    pub fn inf_file<R: BufRead + 'static>(mut self, file: R) -> Self {
+        self.inf_file = Some(Box::new(file));
         self
     }
 

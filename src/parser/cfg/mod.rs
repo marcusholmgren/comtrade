@@ -16,15 +16,14 @@ pub use revisions::FormatRevision;
 pub use sample_rates::SamplingRate;
 pub use status_channel::StatusConfig;
 use std::any::type_name;
-use std::io::BufRead;
 use std::str::FromStr;
 
-impl<T: BufRead> ComtradeParser<T> {
+impl ComtradeParser {
     pub(super) fn parse_cfg(&mut self) -> Result<(), ComtradeError> {
         // TODO: There must be a more efficient way of doing this using line iterators,
         //  I just need to figure out how to create my own line iterator in the
         //  `load_cff()` function.
-        let mut lines = self.cfg_contents.split('\n');
+        let mut lines = self.cfg_contents.lines();
 
         let early_end_err = || ComtradeError::UnexpectedEndOfCfgFile;
 
@@ -180,10 +179,8 @@ impl<T: BufRead> ComtradeParser<T> {
 
         let line = lines.next().ok_or_else(early_end_err)?;
         let mut line_values = split_cfg_line(line);
-        let time_offset = parse_time_offset(&line_values.read_value::<String>()?)
-            .map_err(ComtradeError::ParserError)?;
-        let local_offset = parse_time_offset(&line_values.read_value::<String>()?)
-            .map_err(ComtradeError::ParserError)?;
+        let time_offset = parse_time_offset(&line_values.read_value::<String>()?)?;
+        let local_offset = parse_time_offset(&line_values.read_value::<String>()?)?;
 
         // Time information and relationship between local time and UTC
         // time_code, local_code
@@ -229,7 +226,11 @@ pub trait ConfigLine<'a>: Iterator<Item = &'a str> {
     /// For example 16A for channels where we want 16.
     fn read_value_with_trailing_char<T: FromStr>(&mut self) -> Result<T, ComtradeError> {
         let str_value = self.read_next()?;
-        let trimmed_value = &str_value[..str_value.len().saturating_sub(1)];
+        let trimmed_value = if str_value.ends_with(|c: char| c.is_ascii_alphabetic()) {
+            &str_value[..str_value.len().saturating_sub(1)]
+        } else {
+            str_value
+        };
         trimmed_value
             .parse()
             .map_err(|_| ComtradeError::InvalidValue {
@@ -289,6 +290,15 @@ mod tests {
     #[test]
     fn get_channel_counts() {
         let line = "20,4A,16D ";
+        let line = split_cfg_line(line);
+        let sizes = ChannelSizes::from_line(line).unwrap();
+        assert_eq!(sizes.analog, 4);
+        assert_eq!(sizes.status, 16);
+    }
+
+    #[test]
+    fn get_channel_counts_without_suffix() {
+        let line = "20,4,16 ";
         let line = split_cfg_line(line);
         let sizes = ChannelSizes::from_line(line).unwrap();
         assert_eq!(sizes.analog, 4);

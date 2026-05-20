@@ -3,7 +3,7 @@ use crate::{ComtradeParser, DataFormat, FileType, ParseError, ParseResult};
 use std::io::BufRead;
 use std::str::FromStr;
 
-impl<T: BufRead> ComtradeParser<T> {
+impl ComtradeParser {
     pub(super) fn load_cff(&mut self) -> ParseResult<()> {
         let file = match &mut self.cff_file {
             Some(reader) => reader,

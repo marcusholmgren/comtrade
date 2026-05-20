@@ -4,9 +4,9 @@ use crate::parser::TIMESTAMP_MISSING;
 use crate::{ComtradeParser, ParseError, ParseResult};
 use byteorder::{LittleEndian, ReadBytesExt};
 pub use formats::DataFormat;
-use std::io::{BufRead, Cursor};
+use std::io::Cursor;
 
-impl<T: BufRead> ComtradeParser<T> {
+impl ComtradeParser {
     pub(super) fn parse_dat(&mut self) -> ParseResult<()> {
         match self.data_format {
             Some(DataFormat::Ascii) => self.parse_dat_ascii(),
