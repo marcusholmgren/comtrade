@@ -16,6 +16,7 @@ desktop.ini
 Session.vim
 .cproject
 .idea
+.antigravitycli
 *.iml
 .vscode
 .project

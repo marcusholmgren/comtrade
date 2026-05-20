@@ -1,8 +1,7 @@
 use crate::{ComtradeParser, ParseError, ParseResult, SamplingRate};
 use chrono::FixedOffset;
-use std::io::BufRead;
 
-impl<T: BufRead> ComtradeParser<T> {
+impl ComtradeParser {
     /// Calculate the true value of the timestamp from the in-file value, using the
     /// sampling information if possible, otherwise the in-data timestamp values
     /// along with relevant multiplicative factors from configuration file. This
